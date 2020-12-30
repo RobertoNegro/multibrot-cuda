@@ -1,0 +1,9 @@
+*.jpg
+bin
+cmake-build-debug
+.idea
+results.txt
+benchmark.txt
+bench.sh
+Multibrot
+Benchmark

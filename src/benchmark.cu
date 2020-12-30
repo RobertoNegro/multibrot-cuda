@@ -30,9 +30,9 @@ int main(int argc, char **argv) {
     unsigned int size = width * height;
 
     unsigned char *imageHost;
-    imageHost = (unsigned char *) malloc(4 * size * sizeof(unsigned char));
+    imageHost = (unsigned char *) malloc(3 * size * sizeof(unsigned char));
     unsigned char *imageDevice;
-    gpuErrchk(cudaMallocManaged(&imageDevice, 4 * size * sizeof(unsigned char)));
+    gpuErrchk(cudaMallocManaged(&imageDevice, 3 * size * sizeof(unsigned char)));
 
     int gridSize = (size + blockSize - 1) / blockSize / unroll;
     cout << "BlockSize: " << blockSize << endl << "GridSize: " << gridSize << endl << "Unroll: " << unroll << endl;
@@ -52,7 +52,7 @@ int main(int argc, char **argv) {
                                               0.5, -0.6, 0);
     gpuErrchk(cudaPeekAtLastError());
     gpuErrchk(cudaDeviceSynchronize());
-    gpuErrchk(cudaMemcpy(imageHost, imageDevice, 4 * size * sizeof(unsigned char), cudaMemcpyDeviceToHost));
+    gpuErrchk(cudaMemcpy(imageHost, imageDevice, 3 * size * sizeof(unsigned char), cudaMemcpyDeviceToHost));
     chrono::steady_clock::time_point endTime = chrono::high_resolution_clock::now();
     double executionTime = chrono::duration<double>(endTime - startTime).count();
     printf("Time of generation: %.8fs\n", executionTime);

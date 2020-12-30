@@ -157,25 +157,25 @@ void multibrot_kernel(
             //endregion
 
 //        if (d < 1) {
-//            image[currentIndex * 4] = 0;
-//            image[currentIndex * 4 + 1] = (int) max(0., min(255., (255. * tanh(d))));
-//            image[currentIndex * 4 + 1] = (unsigned char) (max(0., min(255., 0 + d * (255 - 0))));
-//            image[currentIndex * 4 + 2] = 0;
+//            image[currentIndex * 3] = 0;
+//            image[currentIndex * 3 + 1] = (int) max(0., min(255., (255. * tanh(d))));
+//            image[currentIndex * 3 + 1] = (unsigned char) (max(0., min(255., 0 + d * (255 - 0))));
+//            image[currentIndex * 3 + 2] = 0;
 //        } else {
-//            image[currentIndex * 4] = 0;
-//            image[currentIndex * 4 + 1] = 255;
-//            image[currentIndex * 4 + 2] = 0;
+//            image[currentIndex * 3] = 0;
+//            image[currentIndex * 3 + 1] = 255;
+//            image[currentIndex * 3 + 2] = 0;
 //        }
 
             double mix = internalK > 0 ? log(d) / internalK : 1;
             if (mix < 1) {
-                image[currentIndex * 4] = max(0., min(255., internalBorderR + mix * (internalCoreR - internalBorderR)));
-                image[currentIndex * 4 + 1] = max(0., min(255., internalBorderG + mix * (internalCoreG - internalBorderG)));
-                image[currentIndex * 4 + 2] = max(0., min(255., internalBorderB + mix * (internalCoreB - internalBorderB)));
+                image[currentIndex * 3] = max(0., min(255., internalBorderR + mix * (internalCoreR - internalBorderR)));
+                image[currentIndex * 3 + 1] = max(0., min(255., internalBorderG + mix * (internalCoreG - internalBorderG)));
+                image[currentIndex * 3 + 2] = max(0., min(255., internalBorderB + mix * (internalCoreB - internalBorderB)));
             } else {
-                image[currentIndex * 4] = internalCoreR;
-                image[currentIndex * 4 + 1] = internalCoreG;
-                image[currentIndex * 4 + 2] = internalCoreB;
+                image[currentIndex * 3] = internalCoreR;
+                image[currentIndex * 3 + 1] = internalCoreG;
+                image[currentIndex * 3 + 2] = internalCoreB;
             }
         } else { // Outside!
             //region Exterior distance estimation
@@ -278,9 +278,9 @@ void multibrot_kernel(
             }
             //endregion
 
-            image[currentIndex * 4] = tempR;
-            image[currentIndex * 4 + 1] = tempG;
-            image[currentIndex * 4 + 2] = tempB;
+            image[currentIndex * 3] = tempR;
+            image[currentIndex * 3 + 1] = tempG;
+            image[currentIndex * 3 + 2] = tempB;
         }
     }
 }
@@ -307,13 +307,13 @@ void multibrot(
     unsigned int size = width * height;
 
     unsigned char *imageHost;
-    imageHost = (unsigned char *) malloc(4 * size * sizeof(unsigned char));
+    imageHost = (unsigned char *) malloc(3 * size * sizeof(unsigned char));
     unsigned char *imageDevice;
-    gpuErrchk(cudaMallocManaged(&imageDevice, 4 * size * sizeof(unsigned char)));
+    gpuErrchk(cudaMallocManaged(&imageDevice, 3 * size * sizeof(unsigned char)));
 
     int suggestedBlockSize;
     int minGridSize;
-    cudaOccupancyMaxPotentialBlockSize(&minGridSize, &suggestedBlockSize, multibrot_kernel, 0, 4 * size);
+    cudaOccupancyMaxPotentialBlockSize(&minGridSize, &suggestedBlockSize, multibrot_kernel, 0, 3 * size);
     cout << "Suggested BlockSize: " << suggestedBlockSize << endl << "Min GridSize: " << minGridSize << endl;
 
     int gridSize = (size + blockSize - 1) / blockSize / unroll;
@@ -337,7 +337,7 @@ void multibrot(
                                               zoom, posX, posY);
     gpuErrchk(cudaPeekAtLastError());
     gpuErrchk(cudaDeviceSynchronize());
-    gpuErrchk(cudaMemcpy(imageHost, imageDevice, 4 * size * sizeof(unsigned char), cudaMemcpyDeviceToHost));
+    gpuErrchk(cudaMemcpy(imageHost, imageDevice, 3 * size * sizeof(unsigned char), cudaMemcpyDeviceToHost));
     cout << "Generation done!" << endl;
 
     int maxActiveBlocks;
@@ -352,9 +352,9 @@ void multibrot(
     //endregion
 
     for (int i = 0; i < size; i++) {
-        rgb[i * 3] = imageHost[i * 4];
-        rgb[i * 3 + 1] = imageHost[i * 4 + 1];
-        rgb[i * 3 + 2] = imageHost[i * 4 + 2];
+        rgb[i * 3] = imageHost[i * 3];
+        rgb[i * 3 + 1] = imageHost[i * 3 + 1];
+        rgb[i * 3 + 2] = imageHost[i * 3 + 2];
     }
 
     //region Cleanup

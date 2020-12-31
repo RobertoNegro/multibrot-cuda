@@ -20,7 +20,11 @@ inline void gpuAssert(cudaError_t code, const char *file, int line, bool abort =
 }
 
 __device__
-void fromHSLtoRGB(const double h, const double s, const double l, double &r, double &g, double &b) {
+void fromHSLtoRGB(double h, double s, double l, double &r, double &g, double &b) {
+    h = max(0., min(6.0, h));
+    s = max(0., min(1.0, s));
+    l = max(0., min(1.0, l));
+
     if (s < DBL_MIN)
         r = g = b = l;
     else if (l < DBL_MIN)
@@ -62,13 +66,20 @@ void fromHSLtoRGB(const double h, const double s, const double l, double &r, dou
     r *= 255.;
     g *= 255.;
     b *= 255.;
+    r = max(0., min(255.0, r));
+    g = max(0., min(255.0, g));
+    b = max(0., min(255.0, b));
 }
 
 __device__
 void fromRGBtoHSL(double r, double g, double b, double &h, double &s, double &l) {
+    r = max(0., min(255.0, r));
+    g = max(0., min(255.0, g));
+    b = max(0., min(255.0, b));
     r = r / 255.;
     g = g / 255.;
     b = b / 255.;
+
     const double maxRGB = max(r, max(g, b));
     const double minRGB = min(r, min(g, b));
     const double delta2 = maxRGB + minRGB;
@@ -88,6 +99,9 @@ void fromRGBtoHSL(double r, double g, double b, double &h, double &s, double &l)
         else
             h = 4.0f + (r - g) / delta;
     }
+    h = max(0., min(6.0, h));
+    s = max(0., min(1.0, s));
+    l = max(0., min(1.0, l));
 }
 
 __device__
@@ -98,15 +112,10 @@ void color_lighten(unsigned char &r, unsigned char &g, unsigned char &b, double 
     bD = b;
     fromRGBtoHSL(rD, gD, bD, h, s, l);
     l *= quantity;
-    if(l > 1) {
-        l = 1;
-    } else if(l < 0) {
-        l = 0;
-    }
     fromHSLtoRGB(h, s, l, rD, gD, bD);
-    r = max(0., min(255.0, rD));
-    g = max(0., min(255.0, gD));
-    b = max(0., min(255.0, bD));
+    r = floor(rD);
+    g = floor(gD);
+    b = floor(bD);
 }
 
 __global__

@@ -20,7 +20,133 @@ inline void gpuAssert(cudaError_t code, const char *file, int line, bool abort =
 }
 
 __device__
-void fromHSLtoRGB(double h, double s, double l, double &r, double &g, double &b) {
+void RGBtoHSV(double r, double g, double b, double &h, double &s, double &v) {
+    r = max(0., min(255.0, r));
+    g = max(0., min(255.0, g));
+    b = max(0., min(255.0, b));
+    r = r / 255.;
+    g = g / 255.;
+    b = b / 255.;
+
+    h = 0.0f;
+    v = max(r, max(g, b));
+    const float delta = v - min(r, min(g, b));
+
+    if (delta < FLT_MIN)
+        s = 0.0f;
+    else {
+        s = delta / v;
+        if (r >= v) {
+            h = (g - b) / delta;
+            if (h < 0.0f)
+                h += 6.0f;
+        } else if (g >= v)
+            h = 2.0f + (b - r) / delta;
+        else
+            h = 4.0f + (r - g) / delta;
+    }
+    h = max(0., min(6.0, h));
+    s = max(0., min(1.0, s));
+    v = max(0., min(1.0, v));
+}
+
+__device__
+void HSVtoRGB(double h, double s, double v, double &r, double &g, double &b) {
+    h = max(0., min(6.0, h));
+    s = max(0., min(1.0, s));
+    v = max(0., min(1.0, v));
+
+    if (s < FLT_MIN)
+        r = g = b = v;
+    else {
+        const int i = (int) h;
+        const float f = h - i;
+        const float p = v * (1.0f - s);
+
+        if (i & 1) {
+            const float q = v * (1.0f - (s * f));
+            switch (i) {
+                case 1:
+                    r = q;
+                    g = v;
+                    b = p;
+                    break;
+                case 3:
+                    r = p;
+                    g = q;
+                    b = v;
+                    break;
+                default:
+                    r = v;
+                    g = p;
+                    b = q;
+                    break;
+            }
+        } else {
+            const float t = v * (1.0f - (s * (1.0f - f)));
+            switch (i) {
+                case 0:
+                    r = v;
+                    g = t;
+                    b = p;
+                    break;
+                case 2:
+                    r = p;
+                    g = v;
+                    b = t;
+                    break;
+                default:
+                    r = t;
+                    g = p;
+                    b = v;
+                    break;
+            }
+        }
+    }
+
+    r *= 255.;
+    g *= 255.;
+    b *= 255.;
+    r = max(0., min(255.0, r));
+    g = max(0., min(255.0, g));
+    b = max(0., min(255.0, b));
+}
+
+__device__
+void RGBtoHSL(double r, double g, double b, double &h, double &s, double &l) {
+    r = max(0., min(255.0, r));
+    g = max(0., min(255.0, g));
+    b = max(0., min(255.0, b));
+    r = r / 255.;
+    g = g / 255.;
+    b = b / 255.;
+
+    const double maxRGB = max(r, max(g, b));
+    const double minRGB = min(r, min(g, b));
+    const double delta2 = maxRGB + minRGB;
+    l = delta2 * 0.5f;
+
+    const double delta = maxRGB - minRGB;
+    if (delta < DBL_MIN)
+        h = s = 0.0f;
+    else {
+        s = delta / (l > 0.5f ? 2.0f - delta2 : delta2);
+        if (r >= maxRGB) {
+            h = (g - b) / delta;
+            if (h < 0.0f)
+                h += 6.0f;
+        } else if (g >= maxRGB)
+            h = 2.0f + (b - r) / delta;
+        else
+            h = 4.0f + (r - g) / delta;
+    }
+    h = max(0., min(6.0, h));
+    s = max(0., min(1.0, s));
+    l = max(0., min(1.0, l));
+}
+
+__device__
+void HSLtoRGB(double h, double s, double l, double &r, double &g, double &b) {
     h = max(0., min(6.0, h));
     s = max(0., min(1.0, s));
     l = max(0., min(1.0, l));
@@ -72,47 +198,20 @@ void fromHSLtoRGB(double h, double s, double l, double &r, double &g, double &b)
 }
 
 __device__
-void fromRGBtoHSL(double r, double g, double b, double &h, double &s, double &l) {
-    r = max(0., min(255.0, r));
-    g = max(0., min(255.0, g));
-    b = max(0., min(255.0, b));
-    r = r / 255.;
-    g = g / 255.;
-    b = b / 255.;
-
-    const double maxRGB = max(r, max(g, b));
-    const double minRGB = min(r, min(g, b));
-    const double delta2 = maxRGB + minRGB;
-    l = delta2 * 0.5f;
-
-    const double delta = maxRGB - minRGB;
-    if (delta < DBL_MIN)
-        h = s = 0.0f;
-    else {
-        s = delta / (l > 0.5f ? 2.0f - delta2 : delta2);
-        if (r >= maxRGB) {
-            h = (g - b) / delta;
-            if (h < 0.0f)
-                h += 6.0f;
-        } else if (g >= maxRGB)
-            h = 2.0f + (b - r) / delta;
-        else
-            h = 4.0f + (r - g) / delta;
-    }
-    h = max(0., min(6.0, h));
-    s = max(0., min(1.0, s));
-    l = max(0., min(1.0, l));
-}
-
-__device__
 void color_lighten(unsigned char &r, unsigned char &g, unsigned char &b, double quantity) {
-    double rD, gD, bD, h, s, l;
+    double rD, gD, bD, h, s, l, v;
     rD = r;
     gD = g;
     bD = b;
-    fromRGBtoHSL(rD, gD, bD, h, s, l);
-    l *= quantity;
-    fromHSLtoRGB(h, s, l, rD, gD, bD);
+    if (quantity > 1) {
+        RGBtoHSL(rD, gD, bD, h, s, l);
+        l *= quantity;
+        HSLtoRGB(h, s, l, rD, gD, bD);
+    } else if (quantity < 1) {
+        RGBtoHSV(rD, gD, bD, h, s, v);
+        v *= quantity;
+        HSVtoRGB(h, s, v, rD, gD, bD);
+    }
     r = floor(rD);
     g = floor(gD);
     b = floor(bD);

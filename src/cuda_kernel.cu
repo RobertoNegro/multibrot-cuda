@@ -5,6 +5,7 @@
 #include <fstream>
 #include <string>
 #include <cmath>
+#include <float.h>
 #include <cuda_profiler_api.h>
 
 using namespace std;
@@ -16,6 +17,91 @@ inline void gpuAssert(cudaError_t code, const char *file, int line, bool abort =
         fprintf(stderr, "GPUassert: %s %s %d\n", cudaGetErrorString(code), file, line);
         if (abort) exit(code);
     }
+}
+
+__device__
+void fromHSLtoRGB(const double h, const double s, const double l, double &r, double &g, double &b) {
+    if (s < DBL_MIN)
+        r = g = b = l;
+    else if (l < DBL_MIN)
+        r = g = b = 0.0f;
+    else {
+        const double q = l < 0.5f ? l * (1.0f + s) : l + s - l * s;
+        const double p = 2.0f * l - q;
+        double t[] = {h + 2.0f, h, h - 2.0f};
+
+        for (int i = 0; i < 3; ++i) {
+            double *color;
+            switch (i) {
+                case 0:
+                    color = &r;
+                    break;
+                case 1:
+                    color = &g;
+                    break;
+                case 2:
+                    color = &b;
+                    break;
+            }
+            if (t[i] < 0.0f)
+                t[i] += 6.0f;
+            else if (t[i] > 6.0f)
+                t[i] -= 6.0f;
+
+            if (t[i] < 1.0f)
+                *color = p + (q - p) * t[i];
+            else if (t[i] < 3.0f)
+                *color = q;
+            else if (t[i] < 4.0f)
+                *color = p + (q - p) * (4.0f - t[i]);
+            else
+                *color = p;
+        }
+    }
+
+    r *= 255.;
+    g *= 255.;
+    b *= 255.;
+}
+
+__device__
+void fromRGBtoHSL(double r, double g, double b, double &h, double &s, double &l) {
+    r = r / 255.;
+    g = g / 255.;
+    b = b / 255.;
+    const double maxRGB = max(r, max(g, b));
+    const double minRGB = min(r, min(g, b));
+    const double delta2 = maxRGB + minRGB;
+    l = delta2 * 0.5f;
+
+    const double delta = maxRGB - minRGB;
+    if (delta < DBL_MIN)
+        h = s = 0.0f;
+    else {
+        s = delta / (l > 0.5f ? 2.0f - delta2 : delta2);
+        if (r >= maxRGB) {
+            h = (g - b) / delta;
+            if (h < 0.0f)
+                h += 6.0f;
+        } else if (g >= maxRGB)
+            h = 2.0f + (b - r) / delta;
+        else
+            h = 4.0f + (r - g) / delta;
+    }
+}
+
+__device__
+void color_lighten(unsigned char &r, unsigned char &g, unsigned char &b, double quantity) {
+    double rD, gD, bD, h, s, l;
+    rD = r;
+    gD = g;
+    bD = b;
+    fromRGBtoHSL(rD, gD, bD, h, s, l);
+    l *= quantity;
+    fromHSLtoRGB(h, s, l, rD, gD, bD);
+    r = rD;
+    g = gD;
+    b = bD;
 }
 
 __global__
@@ -170,8 +256,10 @@ void multibrot_kernel(
             double mix = internalK > 0 ? log(d) / internalK : 1;
             if (mix < 1) {
                 image[currentIndex * 4] = max(0., min(255., internalBorderR + mix * (internalCoreR - internalBorderR)));
-                image[currentIndex * 4 + 1] = max(0., min(255., internalBorderG + mix * (internalCoreG - internalBorderG)));
-                image[currentIndex * 4 + 2] = max(0., min(255., internalBorderB + mix * (internalCoreB - internalBorderB)));
+                image[currentIndex * 4 + 1] = max(0.,
+                                                  min(255., internalBorderG + mix * (internalCoreG - internalBorderG)));
+                image[currentIndex * 4 + 2] = max(0.,
+                                                  min(255., internalBorderB + mix * (internalCoreB - internalBorderB)));
             } else {
                 image[currentIndex * 4] = internalCoreR;
                 image[currentIndex * 4 + 1] = internalCoreG;
@@ -188,14 +276,14 @@ void multibrot_kernel(
             unsigned char tempB = bgB;
 
             //region Gradient Background Setup
-            if (kR > 0) {
-                tempR = (unsigned char) (max(0., min(255., tempR + (255. * (1 + cos(M_PI_2 * log(V) / (kR))) / 2. / kD))));
+            if (kR > 0.01 || kR < -0.01) {
+                tempR = (unsigned char) (max(0., min(255., tempR + (255. * (1 - cos(log(V) / (kR))) / 2. / kD))));
             }
-            if (kG > 0) {
-                tempG = (unsigned char) (max(0., min(255., tempG + (255. * (1 + cos(M_PI_2 * log(V) / (kG))) / 2. / kD))));
+            if (kG > 0.01 || kG < -0.01) {
+                tempG = (unsigned char) (max(0., min(255., tempG + (255. * (1 - cos(log(V) / (kG))) / 2. / kD))));
             }
-            if (kB > 0) {
-                tempB = (unsigned char) (max(0., min(255., tempB + (255. * (1 + cos(M_PI_2 * log(V) / (kB))) / 2. / kD))));
+            if (kB > 0.01 || kB < -0.01) {
+                tempB = (unsigned char) (max(0., min(255., tempB + (255. * (1 - cos(log(V) / (kB))) / 2. / kD))));
             }
             //endregion
 
@@ -221,22 +309,21 @@ void multibrot_kernel(
                 } else if (t > 1) {
                     t = 1;
                 }
+
+                unsigned char normLightR = tempR;
+                unsigned char normLightG = tempG;
+                unsigned char normLightB = tempB;
+                color_lighten(normLightR, normLightG, normLightB, normLightIntensity);
+
                 double normShadowIntensity = 1 + (1 - normLightIntensity);
-                tempR = (unsigned char) (max(0., min(255., tempR * normShadowIntensity)) +
-                                         t * (max(0., min(255., tempR *
-                                                                normLightIntensity)) -
-                                              max(0., min(255., tempR *
-                                                                normShadowIntensity))));
-                tempG = (unsigned char) (max(0., min(255., tempG * normShadowIntensity)) +
-                                         t * (max(0., min(255., tempG *
-                                                                normLightIntensity)) -
-                                              max(0., min(255., tempG *
-                                                                normShadowIntensity))));
-                tempB = (unsigned char) (max(0., min(255., tempB * normShadowIntensity)) +
-                                         t * (max(0., min(255., tempB *
-                                                                normLightIntensity)) -
-                                              max(0., min(255., tempB *
-                                                                normShadowIntensity))));
+                unsigned char normShadowR = tempR;
+                unsigned char normShadowG = tempG;
+                unsigned char normShadowB = tempB;
+                color_lighten(normShadowR, normShadowG, normShadowB, normShadowIntensity);
+
+                tempR = (unsigned char) (normShadowR + (t * (normLightR - normShadowR)));
+                tempG = (unsigned char) (normShadowG + (t * (normLightG - normShadowG)));
+                tempB = (unsigned char) (normShadowB + (t * (normLightB - normShadowB)));
             }
             //endregion
 
@@ -254,13 +341,18 @@ void multibrot_kernel(
                 } else if (mix > 1) {
                     mix = 1;
                 }
+
+                unsigned char stripeLightR = tempR;
+                unsigned char stripeLightG = tempG;
+                unsigned char stripeLightB = tempB;
+                color_lighten(stripeLightR, stripeLightG, stripeLightB, stripeLightIntensity);
+
                 double stripeShadowIntensity = 1 + (1 - stripeLightIntensity);
-                unsigned char stripeLightR = max(0., min(255., tempR * stripeLightIntensity));
-                unsigned char stripeLightG = max(0., min(255., tempG * stripeLightIntensity));
-                unsigned char stripeLightB = max(0., min(255., tempB * stripeLightIntensity));
-                unsigned char stripeShadowR = max(0., min(255., tempR * stripeShadowIntensity));
-                unsigned char stripeShadowG = max(0., min(255., tempG * stripeShadowIntensity));
-                unsigned char stripeShadowB = max(0., min(255., tempB * stripeShadowIntensity));
+                unsigned char stripeShadowR = tempR;
+                unsigned char stripeShadowG = tempG;
+                unsigned char stripeShadowB = tempB;
+                color_lighten(stripeShadowR, stripeShadowG, stripeShadowB, stripeShadowIntensity);
+
                 tempR = (unsigned char) (stripeShadowR + (mix * (stripeLightR - stripeShadowR)));
                 tempG = (unsigned char) (stripeShadowG + (mix * (stripeLightG - stripeShadowG)));
                 tempB = (unsigned char) (stripeShadowB + (mix * (stripeLightB - stripeShadowB)));

@@ -224,8 +224,8 @@ int main(int argc, char **argv) {
         printf("Internal core color (z): %02x%02x%02x\n", internalCoreR, internalCoreG, internalCoreB);
         printf("Border color (z): %02x%02x%02x\n", borderR, borderG, borderB);
         printf("Border thickness (3 | 4): %.8f\n", borderThickness);
-        printf("Position: X (a | d): %.8f ; Y (w | s): %.8f\n", posX, posY);
-        printf("Zoom (+ | -): %.8f\n", zoom);
+        printf("Position: X (a | d): %.16f ; Y (w | s): %.16f\n", posX, posY);
+        printf("Zoom (+ | -): %.16f\n", zoom);
         printf("Epsilon (o | p): %.16f\n", eps);
         printf("Iterations (k | l): %d\n", iterations);
         printf("R: %.4f\n", R);
@@ -242,7 +242,7 @@ int main(int argc, char **argv) {
 
         char settings[1024];
         sprintf(settings,
-                "./Multibrot -w %d -h %d -bg %02x%02x%02x -ib %02x%02x%02x -ic %02x%02x%02x -bC %02x%02x%02x -bT %.8f -x %.8f -y %.8f -z %.8f -eps %.16f -i %d -R %.4f -kR %.8f -kG %.8f -kB %.8f -kD %.8f -kI %.8f -sI %.8f -sD %.8f -nI %.8f -nH %.8f -nA %.8f\n",
+                "./Multibrot -w %d -h %d -bg %02x%02x%02x -ib %02x%02x%02x -ic %02x%02x%02x -bC %02x%02x%02x -bT %.8f -x %.16f -y %.16f -z %.16f -eps %.16f -i %d -R %.4f -kR %.8f -kG %.8f -kB %.8f -kD %.8f -kI %.8f -sI %.8f -sD %.8f -nI %.8f -nH %.8f -nA %.8f\n",
                 width / 2, height / 2,
                 bgR, bgG, bgB,
                 internalBorderR, internalBorderG, internalBorderB,

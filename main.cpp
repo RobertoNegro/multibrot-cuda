@@ -361,6 +361,7 @@ int main(int argc, char **argv) {
                             iterations *= 10.;
                         }
                     }
+                        break;
                     case 110: {
                         // n
                         if (internalK > 0) {

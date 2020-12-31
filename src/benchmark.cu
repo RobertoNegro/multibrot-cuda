@@ -7,21 +7,23 @@ int main(int argc, char **argv) {
     int width = 4000;
     int height = 2000;
     int blockSize = 32;
-    int unroll = 4;
+    int unroll = 1;
     int iterations = 10000;
+    double eps = 0;
 
     if (argc > 1) {
         int i = 1;
         while (i < argc) {
             string arg = argv[i++];
             if (i < argc) {
-                if (arg == "-blocksize") {
+                if (arg == "-blocksize")
                     blockSize = stoi(argv[i++]);
-                } else if (arg == "-unroll") {
+                else if (arg == "-unroll")
                     unroll = stoi(argv[i++]);
-                } else if (arg == "-i") {
+                else if (arg == "-i")
                     iterations = stoi(argv[i++]);
-                }
+                else if (arg == "-eps")
+                    eps = stod(argv[i++]);
             }
         }
     }
@@ -35,17 +37,18 @@ int main(int argc, char **argv) {
     gpuErrchk(cudaMallocManaged(&imageDevice, 4 * size * sizeof(unsigned char)));
 
     int gridSize = (size + blockSize - 1) / blockSize / unroll;
-    cout << "BlockSize: " << blockSize << endl << "GridSize: " << gridSize << endl << "Unroll: " << unroll << endl;
+    cout << "BlockSize: " << blockSize << endl << "GridSize: " << gridSize << endl << "Unroll: " << unroll << endl
+         << "Eps: " << eps << endl;
 
     chrono::steady_clock::time_point startTime = chrono::high_resolution_clock::now();
     multibrot_kernel<<<gridSize, blockSize>>>(unroll,
                                               imageDevice,
                                               width, height, ratio,
-                                              2, iterations, 1000, 0,
+                                              2, iterations, 1000, eps,
                                               0, 0, 0, 0,
                                               3, 1, 0, 0,
                                               0, 0, 0,
-                                              0, 0, 0,
+                                              0, 0, 0, 0,
                                               0, 0, 0, 255, 255, 255,
                                               0,
                                               0, 1,
@@ -65,6 +68,8 @@ int main(int argc, char **argv) {
 
     ofstream outfile;
     outfile.open("benchmark.txt", ios::out | ios::app);
-    outfile << gridSize << "\t" << blockSize << "\t" << unroll << "\t" << iterations << "\t>>\t" << setprecision(8) << executionTime << "s" << endl;
+    outfile << gridSize << "\t" << blockSize << "\t" << unroll << "\t" << iterations << "\t" << setprecision(16) << eps
+            << "\t>>\t" << setprecision(8)
+            << executionTime << "s" << endl;
     outfile.close();
 }

@@ -27,7 +27,7 @@ void multibrot_kernel(
         unsigned char borderR, unsigned char borderG, unsigned char borderB, double borderThickness,
         long normOrbitSkip, double normLightIntensity, double normLightAngle, double normLightHeight,
         unsigned char bgR, unsigned char bgG, unsigned char bgB,
-        double kR, double kG, double kB,
+        double kR, double kG, double kB, double kD,
         unsigned char internalBorderR, unsigned char internalBorderG, unsigned char internalBorderB,
         unsigned char internalCoreR, unsigned char internalCoreG, unsigned char internalCoreB,
         double internalK,
@@ -189,13 +189,13 @@ void multibrot_kernel(
 
             //region Gradient Background Setup
             if (kR > 0) {
-                tempR = (unsigned char) (255. * (1 - cos(log(V) / (kR * kR) * 10.)) / 4.);
+                tempR = (unsigned char) (max(0., min(255., tempR + (255. * (1 + cos(M_PI_2 * log(V) / (kR))) / 2. / kD))));
             }
             if (kG > 0) {
-                tempG = (unsigned char) (255. * (1 - cos(log(V) / (kG * kG) * 10.)) / 4.);
+                tempG = (unsigned char) (max(0., min(255., tempG + (255. * (1 + cos(M_PI_2 * log(V) / (kG))) / 2. / kD))));
             }
             if (kB > 0) {
-                tempB = (unsigned char) (255. * (1 - cos(log(V) / (kB * kB) * 10.)) / 4.);
+                tempB = (unsigned char) (max(0., min(255., tempB + (255. * (1 + cos(M_PI_2 * log(V) / (kB))) / 2. / kD))));
             }
             //endregion
 
@@ -294,7 +294,7 @@ void multibrot(
         unsigned char borderR, unsigned char borderG, unsigned char borderB, double borderThickness,
         long normOrbitSkip, double normLightIntensity, double normLightAngle, double normLightHeight,
         unsigned char bgR, unsigned char bgG, unsigned char bgB,
-        double kR, double kG, double kB,
+        double kR, double kG, double kB, double kD,
         unsigned char internalBorderR, unsigned char internalBorderG, unsigned char internalBorderB,
         unsigned char internalCoreR, unsigned char internalCoreG, unsigned char internalCoreB, double internalK,
         double stripeDensity, double stripeLightIntensity,
@@ -330,7 +330,7 @@ void multibrot(
                                               borderR, borderG, borderB, borderThickness,
                                               normOrbitSkip, normLightIntensity, normLightAngle, normLightHeight,
                                               bgR, bgG, bgB,
-                                              kR, kG, kB,
+                                              kR, kG, kB, kD,
                                               internalBorderR, internalBorderG, internalBorderB,
                                               internalCoreR, internalCoreG, internalCoreB, internalK,
                                               stripeDensity, stripeLightIntensity,
@@ -352,9 +352,9 @@ void multibrot(
     //endregion
 
     for (int i = 0; i < size; i++) {
-        rgb[i * 3] = imageHost[i * 4];
+        rgb[i * 3 + 2] = imageHost[i * 4];
         rgb[i * 3 + 1] = imageHost[i * 4 + 1];
-        rgb[i * 3 + 2] = imageHost[i * 4 + 2];
+        rgb[i * 3] = imageHost[i * 4 + 2];
     }
 
     //region Cleanup

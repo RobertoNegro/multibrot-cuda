@@ -10,7 +10,7 @@ void multibrot(
         unsigned char borderR, unsigned char borderG, unsigned char borderB, double borderThickness,
         long normOrbitSkip, double normLightIntensity, double normLightAngle, double normLightHeight,
         unsigned char bgR, unsigned char bgG, unsigned char bgB,
-        double kR, double kG, double kB,
+        double kR, double kG, double kB, double kD,
         unsigned char internalBorderR, unsigned char internalBorderG, unsigned char internalBorderB,
         unsigned char internalCoreR, unsigned char internalCoreG, unsigned char internalCoreB, double internalK,
         double stripeDensity, double stripeLightIntensity,

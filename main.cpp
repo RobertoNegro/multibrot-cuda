@@ -35,6 +35,7 @@ int main(int argc, char **argv) {
     double kR = 0.;
     double kG = 0.;
     double kB = 0.;
+    double kD = 2.;
 
     unsigned char internalBorderR = 0xf4;
     unsigned char internalBorderG = 0xa2;
@@ -100,6 +101,8 @@ int main(int argc, char **argv) {
                     kG = stod(argv[i++]);
                 else if (arg == "-kB")
                     kB = stod(argv[i++]);
+                else if (arg == "-kD")
+                    kD = stod(argv[i++]);
                 else if (arg == "-kI")
                     internalK = stod(argv[i++]);
                 else if (arg == "-sI")
@@ -162,12 +165,16 @@ int main(int argc, char **argv) {
                     strncpy(subhex, &hex[4], 2);
                     subhex[2] = '\0';
                     internalCoreB = stoi(subhex, 0, 16);
-                } else if (arg == "-save") {
-                    saveOnly = true;
                 } else if (arg == "-blocksize") {
                     blockSize = stoi(argv[i++]);
                 } else if (arg == "-unroll") {
                     unroll = stoi(argv[i++]);
+                } else if (arg == "-save") {
+                    saveOnly = true;
+                }
+            } else {
+                if (arg == "-save") {
+                    saveOnly = true;
                 }
             }
         }
@@ -201,7 +208,7 @@ int main(int argc, char **argv) {
                 borderR, borderG, borderB, borderThickness * (1. / zoom),
                 normOrbitSkip, normLightIntensity, normLightAngle, normLightHeight,
                 bgR, bgG, bgB,
-                kR, kG, kB,
+                kR, kG, kB, kD,
                 internalBorderR, internalBorderG, internalBorderB, internalCoreR, internalCoreG, internalCoreB,
                 internalK,
                 stripeDensity, stripeLightIntensity,
@@ -223,6 +230,7 @@ int main(int argc, char **argv) {
         printf("Iterations (k | l): %d\n", iterations);
         printf("R: %.4f\n", R);
         printf("External K: R (u | i): %.8f ; G (h | j): %.8f ; B (v | b): %.8f\n", kR, kG, kB);
+        printf("External K divisor (5 | 6): %.8f\n", kD);
         printf("Internal K (n | m): %.8f\n", internalK);
         printf("Stripe light intensity (r | e): %.8f\n", stripeLightIntensity);
         printf("Stripe density (x | c): %.8f\n", stripeDensity);
@@ -234,7 +242,7 @@ int main(int argc, char **argv) {
 
         char settings[1024];
         sprintf(settings,
-                "./Multibrot -w %d -h %d -bg %02x%02x%02x -ib %02x%02x%02x -ic %02x%02x%02x -bC %02x%02x%02x -bT %.8f -x %.8f -y %.8f -z %.8f -eps %.16f -i %d -R %.4f -kR %.8f -kG %.8f -kB %.8f -kI %.8f -sI %.8f -sD %.8f -nI %.8f -nH %.8f -nA %.8f\n",
+                "./Multibrot -w %d -h %d -bg %02x%02x%02x -ib %02x%02x%02x -ic %02x%02x%02x -bC %02x%02x%02x -bT %.8f -x %.8f -y %.8f -z %.8f -eps %.16f -i %d -R %.4f -kR %.8f -kG %.8f -kB %.8f -kD %.8f -kI %.8f -sI %.8f -sD %.8f -nI %.8f -nH %.8f -nA %.8f\n",
                 width / 2, height / 2,
                 bgR, bgG, bgB,
                 internalBorderR, internalBorderG, internalBorderB,
@@ -245,7 +253,7 @@ int main(int argc, char **argv) {
                 eps,
                 iterations,
                 R,
-                kR, kG, kB,
+                kR, kG, kB, kD,
                 internalK,
                 stripeLightIntensity,
                 stripeDensity,
@@ -367,38 +375,56 @@ int main(int argc, char **argv) {
                         break;
                     case 117: {
                         // u
-                        if (kR > 0) {
+                        if (kR > 1) {
                             kR -= 0.5;
+                        } else if (kR > 0) {
+                            kR -= 0.1;
                         }
                     }
                         break;
                     case 105: {
                         // i
-                        kR += 0.5;
+                        if (kR >= 1) {
+                            kR += 0.5;
+                        } else {
+                            kR += 0.1;
+                        }
                     }
                         break;
                     case 104: {
                         // h
-                        if (kG > 0) {
+                        if (kG > 1) {
                             kG -= 0.5;
+                        } else if (kG > 0) {
+                            kG -= 0.1;
                         }
                     }
                         break;
                     case 106: {
                         // j
-                        kG += 0.5;
+                        if (kG >= 1) {
+                            kG += 0.5;
+                        } else {
+                            kG += 0.1;
+                        }
                     }
                         break;
                     case 118: {
                         // v
-                        if (kB > 0) {
+                        if (kB > 1) {
                             kB -= 0.5;
+                        } else if (kB > 0) {
+                            kB -= 0.1;
                         }
                     }
                         break;
                     case 98: {
                         // b
-                        kB += 0.5;
+                        if (kB >= 1) {
+                            kB += 0.5;
+                        } else {
+                            kB += 0.1;
+                        }
                     }
                         break;
                     case 116: {
@@ -479,6 +505,24 @@ int main(int argc, char **argv) {
                         }
                     }
                         break;
+                    case 53: {
+                        // 5
+                        if (kD > 0.3 || kD < 0) {
+                            kD -= 0.2;
+                        } else {
+                            kD = -0.2;
+                        }
+                    }
+                        break;
+                    case 54: {
+                        // 6
+                        if (kD > 0 || kD < -0.3) {
+                            kD += 0.2;
+                        } else {
+                            kD = 0.2;
+                        }
+                    }
+                        break;
                     case 122: {
                         // z
                         if (internalBorderR == 0 && internalBorderG == 0 && internalBorderB == 0 &&
@@ -529,12 +573,14 @@ int main(int argc, char **argv) {
             outfile.close();
 
             printf("File saved as: %s\n", fileName.str().c_str());
+
+            hasToExit = true;
         }
     }
 
     //endregion
 
-    if(rgb != nullptr) {
+    if (rgb != nullptr) {
         free(rgb);
     }
 

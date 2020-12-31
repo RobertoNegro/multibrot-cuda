@@ -98,10 +98,15 @@ void color_lighten(unsigned char &r, unsigned char &g, unsigned char &b, double 
     bD = b;
     fromRGBtoHSL(rD, gD, bD, h, s, l);
     l *= quantity;
+    if(l > 1) {
+        l = 1;
+    } else if(l < 0) {
+        l = 0;
+    }
     fromHSLtoRGB(h, s, l, rD, gD, bD);
-    r = rD;
-    g = gD;
-    b = bD;
+    r = max(0., min(255.0, rD));
+    g = max(0., min(255.0, gD));
+    b = max(0., min(255.0, bD));
 }
 
 __global__

@@ -340,20 +340,30 @@ void multibrot_kernel(
 
         if (V == 0) { // Inside!
             //region Interior distance estimation
-            double u_r = (dzdz_r * dc_r - dzdz_i * dc_i);
-            double u_i = (dzdz_r * dc_i + dzdz_i * dc_r);
-            double v_r = 1 - dz_r;
-            double v_i = -dz_i;
+            double u_r = 1 - dz_r;
+            double u_i = dz_i;
 
-            double u_r_temp = (u_r * v_r + u_i * v_i) / (v_r * v_r + v_i * v_i);
-            u_i = (u_i * v_r - u_r * v_i) / (v_r * v_r + v_i * v_i);
-            u_r = u_r_temp;
+            double v_r = (dc_r * u_r + dc_i * u_i) / (u_r * u_r + u_i * u_i);
+            double v_i = (dc_i * u_r - dc_r * u_i) / (u_r * u_r + u_i * u_i);
 
-            u_r = u_r + dcdz_r;
-            u_i = u_i + dcdz_i;
+            double l_r = (dzdz_r * v_r - dzdz_i * v_i);
+            double l_i = (dzdz_r * v_i + dzdz_i * v_r);
 
-            double d = (1. - (dz_r * dz_r + dz_i * dz_i)) / sqrt(u_r * u_r + u_i * u_i);
+            l_r += dcdz_r;
+            l_i += dcdz_i;
+
+            double d = (1 - (dz_r * dz_r + dz_i * dz_i)) / sqrt(l_r * l_r + l_i * l_i);
             //endregion
+
+//            if(d < 50000) {
+//                image[currentIndex * 4] = internalCoreR;
+//                image[currentIndex * 4 + 1] = internalCoreG;
+//                image[currentIndex * 4 + 2] = internalCoreB;
+//            } else {
+//                image[currentIndex * 4] = internalBorderR;
+//                image[currentIndex * 4 + 1] = internalBorderG;
+//                image[currentIndex * 4 + 2] = internalBorderB;
+//            }
 
 //        if (d < 1) {
 //            image[currentIndex * 4] = 0;
@@ -367,6 +377,10 @@ void multibrot_kernel(
 //        }
 
             double mix = internalK > 0 ? log(d) / internalK : 1;
+            if(mix < 0) {
+                mix = 0;
+            }
+
             if (mix < 1) {
                 image[currentIndex * 4] = max(0., min(255., internalBorderR + mix * (internalCoreR - internalBorderR)));
                 image[currentIndex * 4 + 1] = max(0.,

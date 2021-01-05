@@ -4,6 +4,10 @@ cmake-build-debug
 .idea
 results.txt
 benchmark.txt
-bench.sh
+gcc_multibrot_cpu.sh
 Multibrot
+Multibrot_CPU
+bench.sh
 Benchmark
+bench_cpu.sh
+Benchmark_CPU

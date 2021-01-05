@@ -3,6 +3,8 @@
 #include <fstream>
 #include <string>
 #include <cmath>
+#include <vector>
+#include <thread>
 #include <float.h>
 
 using namespace std;
@@ -490,6 +492,7 @@ void multibrot_kernel(
 
 
 void multibrot(
+        unsigned int nThreads,
         unsigned int unroll,
         unsigned char *rgb,
         int width, int height,
@@ -515,21 +518,25 @@ void multibrot(
 
     //region Generation
     cout << "Fractal generation in process..." << endl;
-    for (unsigned int i = 0; i < size; i++) {
-        multibrot_kernel(
-                i,
-                unroll,
-                imageHost,
-                width, height, ratio,
-                exponent, iterations, R, eps,
-                borderR, borderG, borderB, borderThickness,
-                normOrbitSkip, normLightIntensity, normLightAngle, normLightHeight,
-                bgR, bgG, bgB,
-                kR, kG, kB, kD,
-                internalBorderR, internalBorderG, internalBorderB,
-                internalCoreR, internalCoreG, internalCoreB, internalK,
-                stripeDensity, stripeLightIntensity,
-                zoom, posX, posY);
+    vector <thread> threads;
+    for (int i = 0; i < nThreads; i++) {
+        threads.push_back(thread(multibrot_kernel,
+                                 i,
+                                 ceil((double)size / nThreads),
+                                 imageHost,
+                                 width, height, ratio,
+                                 exponent, iterations, R, eps,
+                                 borderR, borderG, borderB, borderThickness,
+                                 normOrbitSkip, normLightIntensity, normLightAngle, normLightHeight,
+                                 bgR, bgG, bgB,
+                                 kR, kG, kB, kD,
+                                 internalBorderR, internalBorderG, internalBorderB,
+                                 internalCoreR, internalCoreG, internalCoreB, internalK,
+                                 stripeDensity, stripeLightIntensity,
+                                 zoom, posX, posY));
+    }
+    for (thread &th : threads) {
+        th.join();
     }
     cout << "Generation done!" << endl;
     //endregion

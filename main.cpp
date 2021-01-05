@@ -71,6 +71,7 @@ int main(int argc, char **argv) {
     double stripeLightIntensity = 1.3;
 
     bool saveOnly = false;
+    unsigned int nThreads = 12;
     int unroll = 1;
 
     if (argc > 1) {
@@ -168,6 +169,8 @@ int main(int argc, char **argv) {
                     unroll = stoi(argv[i++]);
                 } else if (arg == "-save") {
                     saveOnly = true;
+                } else if (arg == "-threads") {
+                    nThreads = stoi(argv[i++]);
                 }
             } else {
                 if (arg == "-save") {
@@ -197,6 +200,7 @@ int main(int argc, char **argv) {
         auto startTime = chrono::high_resolution_clock::now();
         rgb = (unsigned char *) malloc(width * height * 3 * sizeof(unsigned char));
         multibrot(
+                nThreads,
                 unroll,
                 rgb,
                 width, height,

@@ -1,11 +1,14 @@
 #include "./cuda_kernel.cpp"
 #include <chrono>
+#include <vector>
+#include <thread>
 
 int main(int argc, char **argv) {
     int width = 4000;
     int height = 2000;
     int unroll = 1;
     int iterations = 10000;
+    int nThreads = 12;
     double eps = 0;
 
     if (argc > 1) {
@@ -17,6 +20,8 @@ int main(int argc, char **argv) {
                     unroll = stoi(argv[i++]);
                 else if (arg == "-i")
                     iterations = stoi(argv[i++]);
+                else if (arg == "-threads")
+                    nThreads = stoi(argv[i++]);
                 else if (arg == "-eps")
                     eps = stod(argv[i++]);
             }
@@ -32,21 +37,25 @@ int main(int argc, char **argv) {
     cout << "Unroll: " << unroll << endl << "Eps: " << eps << endl;
 
     chrono::steady_clock::time_point startTime = chrono::high_resolution_clock::now();
-    for (unsigned int i = 0; i < size; i++) {
-        multibrot_kernel(
-                i,
-                unroll,
-                imageHost,
-                width, height, ratio,
-                2, iterations, 1000, eps,
-                0, 0, 0, 0,
-                3, 1, 0, 0,
-                0, 0, 0,
-                0, 0, 0, 0,
-                0, 0, 0, 255, 255, 255,
-                0,
-                0, 1,
-                0.5, -0.6, 0);
+    vector<thread> threads;
+    for (int i = 0; i < nThreads; i++) {
+        threads.push_back(thread(multibrot_kernel,
+                                 i,
+                                 ceil((double)size / nThreads),
+                                 imageHost,
+                                 width, height, ratio,
+                                 2, iterations, 1000, eps,
+                                 0, 0, 0, 0,
+                                 3, 1, 0, 0,
+                                 0, 0, 0,
+                                 0, 0, 0, 0,
+                                 0, 0, 0, 255, 255, 255,
+                                 0,
+                                 0, 1,
+                                 0.5, -0.6, 0));
+    }
+    for (thread &th : threads) {
+        th.join();
     }
 
     chrono::steady_clock::time_point endTime = chrono::high_resolution_clock::now();
@@ -57,7 +66,7 @@ int main(int argc, char **argv) {
 
     ofstream outfile;
     outfile.open("benchmark.txt", ios::out | ios::app);
-    outfile << "CPU" << "\t" << unroll << "\t" << iterations << "\t" << setprecision(16) << eps
+    outfile << "CPU" << "\t" << nThreads << "\t" << unroll << "\t" << iterations << "\t" << setprecision(16) << eps
             << "\t>>\t" << setprecision(8)
             << executionTime << "s" << endl;
     outfile.close();

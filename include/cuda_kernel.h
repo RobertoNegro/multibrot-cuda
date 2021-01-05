@@ -3,7 +3,6 @@
 
 void multibrot(
         unsigned int unroll,
-        unsigned int blockSize,
         unsigned char *rgb,
         int width, int height,
         int exponent, int iterations, double R, double eps,

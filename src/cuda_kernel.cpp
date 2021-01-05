@@ -1,25 +1,12 @@
-#define _USE_MATH_DEFINES
-
 #include <iostream>
 #include <iomanip>
 #include <fstream>
 #include <string>
 #include <cmath>
 #include <float.h>
-#include <cuda_profiler_api.h>
 
 using namespace std;
 
-#define gpuErrchk(ans) { gpuAssert((ans), __FILE__, __LINE__); }
-
-inline void gpuAssert(cudaError_t code, const char *file, int line, bool abort = true) {
-    if (code != cudaSuccess) {
-        fprintf(stderr, "GPUassert: %s %s %d\n", cudaGetErrorString(code), file, line);
-        if (abort) exit(code);
-    }
-}
-
-__device__
 void RGBtoHSV(double r, double g, double b, double &h, double &s, double &v) {
     r = max(0., min(255.0, r));
     g = max(0., min(255.0, g));
@@ -50,7 +37,6 @@ void RGBtoHSV(double r, double g, double b, double &h, double &s, double &v) {
     v = max(0., min(1.0, v));
 }
 
-__device__
 void HSVtoRGB(double h, double s, double v, double &r, double &g, double &b) {
     h = max(0., min(6.0, h));
     s = max(0., min(1.0, s));
@@ -112,7 +98,6 @@ void HSVtoRGB(double h, double s, double v, double &r, double &g, double &b) {
     b = max(0., min(255.0, b));
 }
 
-__device__
 void RGBtoHSL(double r, double g, double b, double &h, double &s, double &l) {
     r = max(0., min(255.0, r));
     g = max(0., min(255.0, g));
@@ -145,7 +130,6 @@ void RGBtoHSL(double r, double g, double b, double &h, double &s, double &l) {
     l = max(0., min(1.0, l));
 }
 
-__device__
 void HSLtoRGB(double h, double s, double l, double &r, double &g, double &b) {
     h = max(0., min(6.0, h));
     s = max(0., min(1.0, s));
@@ -197,7 +181,6 @@ void HSLtoRGB(double h, double s, double l, double &r, double &g, double &b) {
     b = max(0., min(255.0, b));
 }
 
-__device__
 void color_lighten(unsigned char &r, unsigned char &g, unsigned char &b, double quantity) {
     double rD, gD, bD, h, s, l, v;
     rD = r;
@@ -217,8 +200,8 @@ void color_lighten(unsigned char &r, unsigned char &g, unsigned char &b, double 
     b = floor(bD);
 }
 
-__global__
 void multibrot_kernel(
+        unsigned int forceIndex,
         unsigned int unroll,
         unsigned char *image,
         int width, int height, double ratio,
@@ -233,7 +216,8 @@ void multibrot_kernel(
         double stripeDensity, double stripeLightIntensity,
         double zoom, double posX, double posY
 ) {
-    unsigned int threadIndex = blockIdx.x * blockDim.x + threadIdx.x;
+    unsigned int threadIndex = forceIndex;
+
     for (unsigned int unrollIndex = 0; unrollIndex < unroll; unrollIndex++) {
         unsigned int currentIndex = threadIndex * unroll + unrollIndex;
         if (currentIndex >= width * height) {
@@ -377,7 +361,7 @@ void multibrot_kernel(
 //        }
 
             double mix = internalK > 0 ? log(d) / internalK : 1;
-            if(mix < 0) {
+            if (mix < 0) {
                 mix = 0;
             }
 
@@ -504,9 +488,9 @@ void multibrot_kernel(
     }
 }
 
+
 void multibrot(
         unsigned int unroll,
-        unsigned int blockSize,
         unsigned char *rgb,
         int width, int height,
         int exponent, int iterations, double R, double eps,
@@ -518,7 +502,6 @@ void multibrot(
         unsigned char internalCoreR, unsigned char internalCoreG, unsigned char internalCoreB, double internalK,
         double stripeDensity, double stripeLightIntensity,
         double zoom, double posX, double posY) {
-    cudaProfilerStart();
 
     //region Setup
     cout << "Setting up..." << endl;
@@ -527,47 +510,28 @@ void multibrot(
 
     unsigned char *imageHost;
     imageHost = (unsigned char *) malloc(4 * size * sizeof(unsigned char));
-    unsigned char *imageDevice;
-    gpuErrchk(cudaMallocManaged(&imageDevice, 4 * size * sizeof(unsigned char)));
-
-    int suggestedBlockSize;
-    int minGridSize;
-    cudaOccupancyMaxPotentialBlockSize(&minGridSize, &suggestedBlockSize, multibrot_kernel, 0, 4 * size);
-    cout << "Suggested BlockSize: " << suggestedBlockSize << endl << "Min GridSize: " << minGridSize << endl;
-
-    int gridSize = (size + blockSize - 1) / blockSize / unroll;
-    cout << "BlockSize: " << blockSize << endl << "GridSize: " << gridSize << endl << "Unroll: " << unroll << endl;
     cout << "Setup done!" << endl;
     //endregion
 
     //region Generation
     cout << "Fractal generation in process..." << endl;
-    multibrot_kernel<<<gridSize, blockSize>>>(unroll,
-                                              imageDevice,
-                                              width, height, ratio,
-                                              exponent, iterations, R, eps,
-                                              borderR, borderG, borderB, borderThickness,
-                                              normOrbitSkip, normLightIntensity, normLightAngle, normLightHeight,
-                                              bgR, bgG, bgB,
-                                              kR, kG, kB, kD,
-                                              internalBorderR, internalBorderG, internalBorderB,
-                                              internalCoreR, internalCoreG, internalCoreB, internalK,
-                                              stripeDensity, stripeLightIntensity,
-                                              zoom, posX, posY);
-    gpuErrchk(cudaPeekAtLastError());
-    gpuErrchk(cudaDeviceSynchronize());
-    gpuErrchk(cudaMemcpy(imageHost, imageDevice, 4 * size * sizeof(unsigned char), cudaMemcpyDeviceToHost));
+    for (unsigned int i = 0; i < size; i++) {
+        multibrot_kernel(
+                i,
+                unroll,
+                imageHost,
+                width, height, ratio,
+                exponent, iterations, R, eps,
+                borderR, borderG, borderB, borderThickness,
+                normOrbitSkip, normLightIntensity, normLightAngle, normLightHeight,
+                bgR, bgG, bgB,
+                kR, kG, kB, kD,
+                internalBorderR, internalBorderG, internalBorderB,
+                internalCoreR, internalCoreG, internalCoreB, internalK,
+                stripeDensity, stripeLightIntensity,
+                zoom, posX, posY);
+    }
     cout << "Generation done!" << endl;
-
-    int maxActiveBlocks;
-    cudaOccupancyMaxActiveBlocksPerMultiprocessor(&maxActiveBlocks, multibrot_kernel, blockSize, 0);
-    int device;
-    cudaDeviceProp props;
-    cudaGetDevice(&device);
-    cudaGetDeviceProperties(&props, device);
-    double occupancy = (maxActiveBlocks * blockSize / props.warpSize) /
-                       (double) (props.maxThreadsPerMultiProcessor / props.warpSize);
-    cout << std::setprecision(4) << "Theoretical occupancy: " << occupancy << "%" << endl;
     //endregion
 
     for (int i = 0; i < size; i++) {
@@ -578,8 +542,5 @@ void multibrot(
 
     //region Cleanup
     free(imageHost);
-    cudaFree(imageDevice);
-    cudaDeviceReset();
     //endregion
-    cudaProfilerStop();
 }

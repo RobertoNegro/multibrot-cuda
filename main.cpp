@@ -14,7 +14,7 @@
 #include <opencv2/highgui.hpp>
 #include <opencv2/imgproc.hpp>
 
-#include "include/cuda_kernel.cuh"
+#include "include/cuda_kernel.h"
 
 using namespace std;
 using namespace cv;
@@ -71,7 +71,6 @@ int main(int argc, char **argv) {
     double stripeLightIntensity = 1.3;
 
     bool saveOnly = false;
-    int blockSize = 32;
     int unroll = 1;
 
     if (argc > 1) {
@@ -165,8 +164,6 @@ int main(int argc, char **argv) {
                     strncpy(subhex, &hex[4], 2);
                     subhex[2] = '\0';
                     internalCoreB = stoi(subhex, 0, 16);
-                } else if (arg == "-blocksize") {
-                    blockSize = stoi(argv[i++]);
                 } else if (arg == "-unroll") {
                     unroll = stoi(argv[i++]);
                 } else if (arg == "-save") {
@@ -201,7 +198,6 @@ int main(int argc, char **argv) {
         rgb = (unsigned char *) malloc(width * height * 3 * sizeof(unsigned char));
         multibrot(
                 unroll,
-                blockSize,
                 rgb,
                 width, height,
                 exponent, iterations, R, eps,

@@ -2,6 +2,7 @@
 #define MULTIBROT_CUDA_KERNEL_CUH
 
 void multibrot(
+        unsigned int nThreads,
         unsigned int unroll,
         unsigned char *rgb,
         int width, int height,
